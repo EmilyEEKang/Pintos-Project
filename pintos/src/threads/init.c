@@ -73,6 +73,8 @@ static void locate_block_device (enum block_type, const char *name);
 int pintos_init (void) NO_RETURN;
 
 /* Pintos main entry point. */
+/* main entry */
+
 int
 pintos_init (void)
 {
