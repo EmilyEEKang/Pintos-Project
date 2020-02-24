@@ -133,11 +133,50 @@ pintos_init (void)
     /* Run actions specified on kernel command line. */
     run_actions (argv);
   } else {
-    // TODO: no command line passed to kernel. Run interactively 
-  }
+    // TODO: no command line passed to kernel. Run interactivel
+    
+ 
+    while(true){
+        char str[256];    
+	//Prompt for innput 
+        printf("ICS143A>");	   
+        int counter = 0; 
+  	//Store input in str array  
+    	while(true){
+ 	    char c = input_getc();
+	    if(c == '\n'){	//if user clicks 'enter', stop storing in str array
+		printf("\n");
+		str[counter] = '\0'; 
+		counter = 0;
+  		break;
+	    } 
+	    printf("%c", c); 	//displays character that was typed 
+    	    str[counter] = c;   
+	    counter++;  
+        }
 
-  /* Finish up. */
-  shutdown ();
+        if(strcmp(str,"exit") == 0){		
+            break;       
+        }else if(strcmp(str,"whoami") == 0){
+            printf("Gianna Isabelle Mascardo\n"); 
+        }else{  
+	    /*
+	    for(int i = 0; i < 256; i++){
+   		printf("%c", str[i]);
+	    } 
+     	    */        
+            printf("invalid command\n");
+        }
+
+  	//Clear str array 
+	for(int i = 0; i < 256; i++){
+  	    str[0] = '\0'; 
+	}
+ 		 
+    }
+  } 
+      /* Finish up. */
+   shutdown ();
   thread_exit ();
 }
 
