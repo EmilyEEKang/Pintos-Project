@@ -91,9 +91,30 @@ timer_sleep (int64_t ticks)
 {
   int64_t start = timer_ticks ();
 
-  ASSERT (intr_get_level () == INTR_ON);
+  ASSERT (intr_get_level () == INTR_ON);/
+
+  /****************/ 
+
+  static struct list waiting_list; 
+  static struct semaphore sema; 
+  sema_init(&sema, 0);      
+
+  do{
+      if(timer_elapsed(start) < ticks){
+        sema_down(sema); 
+        list_push_back(waiting_list, thread_current()); 
+      }
+      else if(timer_elapsed(start) >= ticks){
+        sema_up(sema);
+        thread_yield();
+        break;
+      }
+    } while(true); 
+
+/*
   while (timer_elapsed (start) < ticks) 
     thread_yield ();
+*/ 
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
