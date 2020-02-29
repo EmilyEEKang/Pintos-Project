@@ -102,7 +102,12 @@ timer_sleep (int64_t ticks)
   do{
       if(timer_elapsed(start) < ticks){
         sema_down(sema); 
-        list_push_back(waiting_list, thread_current()); 
+        // thread_current()->priority. 
+        for(thread e = list_begin(&waiting_list); e != list_end(&waiting_ist); e = list_next(e)){
+          if(thread_current()->priority < e->priority){
+            list_insert(thread_current(), e); 
+          }
+        }
       }
       else if(timer_elapsed(start) >= ticks){
         sema_up(sema);
