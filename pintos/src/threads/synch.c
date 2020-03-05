@@ -68,8 +68,15 @@ sema_down (struct semaphore *sema)
   old_level = intr_disable ();
   while (sema->value == 0) 
     {
+      /* My code start */
+      list_insert_ordered(&sema->waiters, &thread_current()->elem, more_prio, NULL);
+      thread_block();
+      /* My code ends */
+
+      /*
       list_push_back (&sema->waiters, &thread_current ()->elem);
       thread_block ();
+      */
     }
   sema->value--;
   intr_set_level (old_level);
@@ -110,15 +117,41 @@ sema_up (struct semaphore *sema)
 {
   enum intr_level old_level;
 
+  /* My code starts */
+  bool yield = false; 
+  /* My code ends */ 
+
   ASSERT (sema != NULL);
 
   old_level = intr_disable ();
   if (!list_empty (&sema->waiters)) 
+  {
+    /* My code starts */
+    struct thread *t = list_entry(list_pop_front(&sema->waiters), struct thread, elem);
+    /* My code ends */ 
     thread_unblock (list_entry (list_pop_front (&sema->waiters),
                                 struct thread, elem));
+
+    /* My code starts */
+    // Yield to the newly unblocked thread if it has a higher priority 
+    if(t->priority > thread_current()->priorty)
+ 	yield = true; 
+    /* My code ends */ 
+  }
   sema->value++;
   intr_set_level (old_level);
+
+   /* My code starts */
+   if(yield)
+   {
+      if(!intr_context())
+	thread_yield();
+      else
+	intr_yield_on_return();
+   }
+   /* My code ends */ 
 }
+
 
 static void sema_test_helper (void *sema_);
 

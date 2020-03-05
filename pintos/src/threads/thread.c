@@ -464,6 +464,10 @@ init_thread (struct thread *t, const char *name, int priority)
   t->priority = priority;
   t->magic = THREAD_MAGIC;
 
+  /* My code starts */
+  sema_init(&t->timer_sema, 0);		// Initialize timer_sema with FALSE
+  /* My code ends */
+
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
   intr_set_level (old_level);
@@ -582,3 +586,28 @@ allocate_tid (void)
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
+
+
+/* MODIFIED CODE HERE */
+bool 
+less_wakeup (const struct list_elem *left, const struct list_elem *right, 
+void *aux UNUSED)
+{
+   const struct thread *tleft = list_entry(left, struct thread, timer_elem);
+   const struct thread *tright = list_entry(right, struct thread, timer_elem);
+
+   if (tleft->wakeup_time != tright->wakeup_time)
+	return tleft->wakeup_time < tright->wakeup_time;
+   else
+  	return tleft->priority > tright->priority; 
+}
+
+bool 
+more_prio(const struct list_elem *left, const struct list_elem *right, 
+void *aux UNUSED)
+{
+   const struct thread *tleft = list_entry(left, struct thread, elem);
+   const struct thread *tright = list_entry(right, struct thread, elem);
+
+   return tleft->priority > tright->priority;
+} 
