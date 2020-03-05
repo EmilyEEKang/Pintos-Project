@@ -32,11 +32,17 @@ static void real_time_delay (int64_t num, int32_t denom);
 
 /* Sets up the timer to interrupt TIMER_FREQ times per second,
    and registers the corresponding interrupt. */
+
+/* My code starts */
+static struct list timer_wait_list; 
+/* My code ends */
+
 void
 timer_init (void) 
 {
   pit_configure_channel (0, 2, TIMER_FREQ);
   intr_register_ext (0x20, timer_interrupt, "8254 Timer");
+  list_init(&timer_wait_list);
 }
 
 /* Calibrates loops_per_tick, used to implement brief delays. */
@@ -89,8 +95,10 @@ timer_elapsed (int64_t then)
 void
 timer_sleep (int64_t ticks) 
 {
+  /* My code starts */ 
   int64_t start = timer_ticks ();
 
+<<<<<<< HEAD
   ASSERT (intr_get_level () == INTR_ON);/
 
   /****************/ 
@@ -120,6 +128,29 @@ timer_sleep (int64_t ticks)
   while (timer_elapsed (start) < ticks) 
     thread_yield ();
 */ 
+=======
+  struct thread *t = thread_current(); 
+
+  if(ticks <= 0){
+    return;  	
+  }
+  
+  t->wakeup_time = timer_ticks() + ticks;
+  /* My code ends */ 
+
+  ASSERT (intr_get_level () == INTR_ON);
+
+  /* My code starts */
+  intr_disable();	 
+  list_insert_ordered(&timer_wait_list, &t->timer_elem, less_wakeup, NULL);
+  intr_enable(); 
+
+  sema_down(&t -> timer_sema); 
+  /* My code ends */ 
+  
+//  while (timer_elapsed (start) < ticks) 
+//    thread_yield ();
+>>>>>>> 743d5b95dc8b4e1b69d59d9eaefd917a397f4f88
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
@@ -196,8 +227,28 @@ timer_print_stats (void)
 static void
 timer_interrupt (struct intr_frame *args UNUSED)
 {
+ 	
+  /* My code starts */
+  struct thread *t;
+  /* My code ends */ 
+
   ticks++;
   thread_tick ();
+
+  /* My code starts */ 
+  enum intr_level old_level = intr_disable(); 
+  while(!list_empty(&timer_wait_list)){
+ 	t = list_entry(list_front(&timer_wait_list), struct thread, timer_elem);
+	//First element is the earliest to wakeup because list is ordered 
+	if(ticks < t->wakeup_time)
+		break;
+
+	sema_up(&t->timer_sema);
+	list_pop_front(&timer_wait_list);
+  }
+  intr_set_level(old_level);	
+
+  /* My code ends */ 
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer

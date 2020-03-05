@@ -1,6 +1,8 @@
 #ifndef THREADS_THREAD_H
 #define THREADS_THREAD_H
 
+#include "threads/synch.h"
+//#include <fixed-point.h>
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
@@ -90,6 +92,12 @@ struct thread
     int priority;                       /* Priority. */
     struct list_elem allelem;           /* List element for all threads list. */
 
+    /* Owned by thread.c -- MODIFIED */
+    int64_t wakeup_time; 		/* Thread's wakeup time in ticks */ 
+    struct semaphore timer_sema; 
+    struct list_elem timer_elem;  	/* List element in timer_wait_list*/ 
+
+
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
 
@@ -129,6 +137,7 @@ void thread_yield (void);
 /* Performs some operation on thread t, given auxiliary data AUX. */
 typedef void thread_action_func (struct thread *t, void *aux);
 void thread_foreach (thread_action_func *, void *);
+//void thread_foreach_ready (thread_action_func *. void *); 
 
 int thread_get_priority (void);
 void thread_set_priority (int);
@@ -137,5 +146,12 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
+
+/* MODIFIED CODE HERE */
+bool less_wakeup(const struct list_elem *left, const struct list_elem *right, 
+void *aux UNUSED);
+
+bool more_prio(const struct list_elem *left, const struct list_elem *right,
+void *aux UNUSED);
 
 #endif /* threads/thread.h */
