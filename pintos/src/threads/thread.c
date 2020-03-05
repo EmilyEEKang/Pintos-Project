@@ -1,4 +1,5 @@
 #include "threads/thread.h"
+#include "devices/timer.h" 	//MODIFIED
 #include <debug.h>
 #include <stddef.h>
 #include <random.h>
@@ -170,7 +171,8 @@ thread_create (const char *name, int priority,
   struct kernel_thread_frame *kf;
   struct switch_entry_frame *ef;
   struct switch_threads_frame *sf;
-  tid_t tid;
+  tid_t tid; 
+  enum intr_level old_level;		//MODIFIED
 
   ASSERT (function != NULL);
 
@@ -182,6 +184,10 @@ thread_create (const char *name, int priority,
   /* Initialize thread. */
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
+
+  /* My code starts */
+  old_level = intr_disable();
+  /* My code ends */
 
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame (t, sizeof *kf);
@@ -198,8 +204,20 @@ thread_create (const char *name, int priority,
   sf->eip = switch_entry;
   sf->ebp = 0;
 
+  /* My code start */
+  intr_set_level(old_level);
+  /* My code end */
+
   /* Add to run queue. */
   thread_unblock (t);
+
+  /* My code start */
+  if(t->priority > thread_current()->priority)
+  {
+     ASSERT(!intr_context());
+     thread_yield(); 
+  }
+  /* My code end */
 
   return tid;
 }
@@ -335,7 +353,26 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority) 
 {
+  /* My code starts */
+  bool yield = false; 
+  /* My code ends */ 
+
   thread_current ()->priority = new_priority;
+  
+  /* My code starts */ 
+  enum intr_level old_level = intr_disable();
+  if(!list_empty(&ready_list))
+  {
+     struct thread *t = list_entry(list_front(&ready_list), struct thread, elem);
+     if(t->priority > new_priority)
+	yield = true;
+  }
+
+   intr_set_level(old_level);
+   
+   if(yield)
+      thread_yeild();
+   /* My code ends */
 }
 
 /* Returns the current thread's priority. */
@@ -582,7 +619,6 @@ allocate_tid (void)
 
   return tid;
 }
-
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
@@ -610,4 +646,8 @@ void *aux UNUSED)
    const struct thread *tright = list_entry(right, struct thread, elem);
 
    return tleft->priority > tright->priority;
-} 
+}
+
+/* Offset of 'stack' member within 'struct thread' 
+   Used by switch.S, which can't figure it out on its own. */ 
+uint32_t thread_stack_ofs = offsetof (struct thread, stack); 
