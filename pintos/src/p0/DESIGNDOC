@@ -1,0 +1,96 @@
+			+-------------------------+
+			|      CompSci 143A       |
+			| PROJECT 0: Getting Real |
+			|     DESIGN DOCUMENT     |
+			+-------------------------+
+				   
+---- AUTHOR ----
+
+>> Fill in your name and email address.
+
+Gianna Mascardo <mascardg@uci.edu>
+
+---- PRELIMINARIES ----
+
+>> If you have any preliminary comments on your submission, or notes for the
+>> TAs, please give them here.
+
+>> Please cite any offline or online sources you consulted while
+>> preparing your submission, other than the Pintos documentation, course
+>> text, lecture notes, and course staff.
+
+			     Booting Pintos
+			     ==============
+
+---- QUESTIONS ---- 
+>> Put the screenshots of Pintos running in src/p0.
+
+Screenshot is under the p0 folder with the name "RunningPintos.JPG"
+
+>> A1: Is there any particular issue that you would like us to know?
+Instructions for how to include the screenshot in the Pintos file in the directory.
+Other than that, instructions were straightforward and easy to follow :) 
+
+			     Kernel Monitor
+			     ==============
+
+---- DATA STRUCTURES ----
+
+>> C1: Copy here the declaration of each new or changed `struct' or
+>> `struct' member, global or static variable, `typedef', or
+>> enumeration.  Identify the purpose of each in 25 words or less.
+
+-- 'struct' -- 
+'struct' is the keyword used to create a structure, which is a user defined data type 
+that groups different types of items into a single type. 
+
+struct Struct_name{
+    data_type_1 struct_member_1; 
+    data_type_2 struct_member_2;  
+};  
+
+-- 'struct members' --
+'struct' members are the members within a 'struct' that are different types, but grouped
+together. They cannot be initialzied with declarations, so they are initialized in 
+curly braces when creating an new struct  
+
+struct Struct_name s1 = {intial_value_1, initial_value_2}; 
+
+-- global variable -- 
+Global variables are variables that stay in scope for the lifetime of the program.
+They are defined outside all functions, usually at the top of the program.  
+
+int global_var;
+
+int main()(
+   return 0; 
+}
+
+-- static variable -- 
+Static variables are variables that preserve their value even after they are out of their
+scope. It remains in memory while the program is running. 
+
+static data_type var_name = var_value; 
+
+-- 'typedef' --
+'typedef' allows you to name a user defined data type and then use that data type to
+define structure variables 
+
+typdef struct Struct_name{
+    data_type_1 = struct_member_1;
+    data_type_2 = struct_member_2; 
+} Struct_name;
+
+-- enumeration --
+Enumeration ('enum') is a user defined data type that's used to assign names to integral
+constants to make it easier for the program to read.
+
+enum flag{constant_1, constant_2, constant_, ...};
+ 
+---- ALGORITHMS ----
+>> C2: Explain how you read and write to the console for the kernel monitor.
+Users can read and write to the consol for the kernel monitor by executing priviledged
+instructions in the user mode , which will trap them into kernel mode. When an interrupt
+or trap occurs, the hardware switches from user mode to kernel mode. 
+
+>> C3: Any additional enhancement you implement?
