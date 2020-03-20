@@ -1,7 +1,7 @@
 #ifndef THREADS_THREAD_H
 #define THREADS_THREAD_H
 
-#include "threads/synch.h" // ADDED
+#include "threads/synch.h"
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
@@ -25,6 +25,12 @@ typedef int tid_t;
 #define PRI_DEFAULT 31                  /* Default priority. */
 #define PRI_MAX 63                      /* Highest priority. */
 
+/* MY CODE */
+
+/* Nice Values */
+#define NICE_MIN -20			/* Lowest nice value */
+#define NICE_DEFAULT 0			/* Default nice value */
+#define NICE_MAX 20			/* Highest nice value */
 /* A kernel thread or user process.
 
    Each thread structure is stored in its own 4 kB page.  The
@@ -88,13 +94,22 @@ struct thread
     enum thread_status status;          /* Thread state. */
     char name[16];                      /* Name (for debugging purposes). */
     uint8_t *stack;                     /* Saved stack pointer. */
-    int priority;                       /* Priority. */
+    int priority;                       /* Priority; Changes during priority donation. */
+    int old_priority;			/* MY CODE - Original "OLD" priority */
     struct list_elem allelem;           /* List element for all threads list. */
 
-    /* ADDED MY CODE */
-    int64_t wakeup_time;
+    /* MY CODE - Pt 1 alarm priority */
+    int64_t wakeup;
     struct semaphore timer_sema;
     struct list_elem timer_elem;
+
+    /* MY CODE - Pt 2 Locks needed for Priority Donation */
+    struct lock *wait_lock;		/* MY CODE - lock the thread is waiting */
+    struct list list_lock;   		/* MY CODE - list of locks thread is holding */
+
+    /* My CODE - Pt 3 */
+    int nice;				/* MY CODE - thread's nice value */
+    int recent_cpu;			/* MY CODE - thread's recent cpu usage */
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
@@ -138,16 +153,18 @@ void thread_foreach (thread_action_func *, void *);
 
 int thread_get_priority (void);
 void thread_set_priority (int);
+void thread_donate_priority(struct thread *, int priority);
+void thread_yield_priority(int priority);
 
 int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
-/* ADDED MY CODE */
-bool less_wakeup(const struct list_elem *left, const struct list_elem *right,
-                 void *aux UNUSED);
-bool greater_priority(const struct list_elem *left, const struct list_elem *right,
-                      void *aux UNUSED);
+/* MY CODE */
+void mlfqs_set_priority(struct thread* t);
+
+bool greater_thread_priority(const struct list_elem *left, const struct list_elem *right,
+                             void *aux UNUSED);
 
 #endif /* threads/thread.h */

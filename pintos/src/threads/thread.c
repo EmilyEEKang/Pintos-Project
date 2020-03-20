@@ -1,5 +1,5 @@
 #include "threads/thread.h"
-#include "devices/timer.h" //ADDED
+#include "devices/timer.h"		//MODIFIED
 #include <debug.h>
 #include <stddef.h>
 #include <random.h>
@@ -202,8 +202,13 @@ thread_create (const char *name, int priority,
   /* Add to run queue. */
   thread_unblock (t);
 
-  /* ADDED MY CODE */
-  /* If the new thread has a higher priority than the running thread, YIELD */
+  /* MY CODE */
+  /* ROUND ROBIN SCHEDULING */
+  // If the new thread has a higher priority than the running thread, YIELD */
+  if(thread_mlfqs)
+  {
+    mlfqs_set_priority(t);
+  } //else{
   if(t->priority > thread_current()->priority)
   {
     ASSERT (!intr_context());
@@ -246,11 +251,14 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  list_insert_ordered(&ready_list, &t->elem, greater_priority, NULL); // ADDED
-  /* ORIGINAL CODE
-  list_push_back (&ready_list, &t->elem);
-  */
+  list_insert_ordered(&ready_list, &t->elem, greater_thread_priority, NULL);
+  //list_push_back (&ready_list, &t->elem);
   t->status = THREAD_READY;
+
+  /* MY CODE - Priority Preempt Test*/
+  if(thread_current() != idle_thread && t->priority > thread_current()->priority)
+    thread_yield();
+
   intr_set_level (old_level);
 }
 
@@ -320,7 +328,8 @@ thread_yield (void)
 
   old_level = intr_disable ();
   if (cur != idle_thread)
-    list_push_back (&ready_list, &cur->elem);
+    list_insert_ordered(&ready_list, &cur->elem, greater_thread_priority, NULL);
+  //list_push_back (&ready_list, &cur->elem);
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -347,22 +356,14 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority)
 {
-  /* ORIGINAL CODE */
-  thread_current ()->priority = new_priority;
-
   /* MY CODE */
-  bool yield = false;
-  enum intr_level old_level = intr_disable();
-  if(!list_empty(&ready_list))
-  {
-    struct thread *t = list_entry( list_front(&ready_list), struct thread, elem);
-    if(t->priority > new_priority)
-      yield = true;
+  if(thread_current()->priority == thread_current()->old_priority){	//NORMAL
+    thread_current()->priority = new_priority;
+    thread_current()->old_priority = new_priority;
+  }else{							//PRIORITY DONATION
+    thread_current()->old_priority = new_priority;
   }
-  intr_set_level (old_level);
-
-  if(yield)
-    thread_yield();
+  thread_yield_priority(new_priority);
 }
 
 /* Returns the current thread's priority. */
@@ -370,6 +371,28 @@ int
 thread_get_priority (void)
 {
   return thread_current ()->priority;
+}
+
+/* MY CODE*/
+void
+thread_donate_priority(struct thread *t, int new_priority)
+{
+  t->priority = new_priority;
+
+  //if the current thread's priority decreases and the ready list is not empty,
+  //then YIELD so that the ready_list has the highest priority
+  if(t == thread_current())
+    thread_yield_priority(new_priority);
+}
+
+/* if the next thread on ready list has a higher priority, yield*/
+void
+thread_yield_priority(int new_priority){
+  if(!list_empty(&ready_list)){
+    struct thread *t_entry = list_entry( list_front(&ready_list), struct thread, elem);
+    if(t_entry != NULL && t_entry->priority > new_priority)
+      thread_yield();
+  }
 }
 
 /* Sets the current thread's nice value to NICE. */
@@ -383,8 +406,7 @@ thread_set_nice (int nice UNUSED)
 int
 thread_get_nice (void)
 {
-  /* Not yet implemented. */
-  return 0;
+  return thread_current()->nice;
 }
 
 /* Returns 100 times the system load average. */
@@ -399,9 +421,25 @@ thread_get_load_avg (void)
 int
 thread_get_recent_cpu (void)
 {
-  /* Not yet implemented. */
-  return 0;
+  int r = 100 * thread_current()->recent_cpu;
+  return r;
 }
+
+/* MY CODE - helper functions for MLFQS*/
+
+void
+mlfqs_set_priority(struct thread *t)
+{
+  if(t == idle_thread)
+    return;
+  int mlfqs_priority = PRI_MAX - (t->recent_cpu / 4) - t->nice * 2;  //get ans in int
+
+  t->priority = mlfqs_priority;
+
+  if(t->priority > PRI_MAX) t->priority = PRI_MAX;
+  if(t->priority < PRI_MIN) t->priority = PRI_MIN;
+}
+
 
 /* Idle thread.  Executes when no other thread is ready to run.
 
@@ -489,9 +527,21 @@ init_thread (struct thread *t, const char *name, int priority)
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
+  t->old_priority = priority;			//FOR PRIORITY DONATION
+  t->wait_lock = NULL;				//FOR PRIORITY DONATION
+  list_init (&t->list_lock); 			//FOR PRIORITY DONATION
+
+  if(thread_mlfqs)				//FOR MLFQS
+  {
+    t->nice = NICE_DEFAULT;
+    if(t == initial_thread)
+      t->recent_cpu = 0;
+    else
+      t->recent_cpu = thread_get_recent_cpu();
+  }
   t->magic = THREAD_MAGIC;
 
-  sema_init(&t->timer_sema, 0); // ADDED
+  sema_init(&t->timer_sema, 0); 		//MODIFIED
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
@@ -608,28 +658,16 @@ allocate_tid (void)
   return tid;
 }
 
-/* ADDED MY CODE */
-bool
-less_wakeup(const struct list_elem *left, const struct list_elem *right,
-            void *aux UNUSED)
-{
-  const struct thread *tleft = list_entry(left, struct thread, timer_elem);
-  const struct thread *tright = list_entry(right, struct thread, timer_elem);
-
-  if(tleft->wakeup_time != tright->wakeup_time)
-    return tleft->wakeup_time < tright->wakeup_time;
-  else
-    return tleft->priority < tright->priority;
-}
+/* MY CODE */
 
 bool
-greater_priority(const struct list_elem *left, const struct list_elem *right,
-                 void *aux UNUSED)
+greater_thread_priority(const struct list_elem *left, const struct list_elem *right,
+                        void *aux UNUSED)
 {
-  const struct thread *tleft = list_entry(left, struct thread, elem);
-  const struct thread *tright = list_entry(right, struct thread, elem);
+  const struct thread *t_left = list_entry(left, struct thread, elem);
+  const struct thread *t_right = list_entry(right, struct thread, elem);
 
-  return tleft->priority > tright->priority;
+  return t_left->priority > t_right->priority;
 }
 
 /* Offset of `stack' member within `struct thread'.
